@@ -9,7 +9,7 @@ import Foundation
 // the app's Activity.request with the widget's ActivityConfiguration by type name,
 // so both copies must declare the same `StudyTimerAttributes`.
 // Mirrors src/timer/liveActivityState.ts.
-struct StudyTimerAttributes: ActivityAttributes {
+struct StudyTimerAttributes: ActivityAttributes, Equatable {
   struct ContentState: Codable, Hashable {
     /// True while the timer is paused.
     var isPaused: Bool

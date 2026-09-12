@@ -41,16 +41,31 @@ public class LiveActivityModule: Module {
     }
 
     AsyncFunction("startActivity") { (attributes: AttributesRecord, state: ContentStateRecord) async throws in
+      let newAttributes = attributes.toAttributes()
+      let newContent = state.toContent()
+      // App relaunch re-adopts a persisted session: if the surviving activity already
+      // shows exactly this session, leave it alone instead of blinking it off and on.
+      if let existing = Activity<StudyTimerAttributes>.activities.first,
+         Activity<StudyTimerAttributes>.activities.count == 1,
+         existing.attributes == newAttributes,
+         existing.content.state == newContent.state {
+        return
+      }
       // Only one Live Activity exists at a time by design: end any existing
       // activity first so we never leave a zombie activity running.
       for activity in Activity<StudyTimerAttributes>.activities {
         await activity.end(dismissalPolicy: .immediate)
       }
       _ = try Activity<StudyTimerAttributes>.request(
-        attributes: attributes.toAttributes(),
-        content: state.toContent(),
+        attributes: newAttributes,
+        content: newContent,
         pushType: nil
       )
+    }
+
+    // Diagnostic for edge-case tests: how many of our activities the system still holds.
+    Function("getActivityCount") {
+      Activity<StudyTimerAttributes>.activities.count
     }
 
     AsyncFunction("updateActivity") { (state: ContentStateRecord) async in

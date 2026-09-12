@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { GradientButton } from '../components';
 import { colors, fonts, radii, shadows, type } from '../theme';
-import { DEFAULT_GOAL_MS, GOAL_PRESETS_MS, MAX_NAME_LENGTH } from '../timer/constants';
+import { DEFAULT_GOAL_MS, DEV_GOAL_PRESET_MS, GOAL_PRESETS_MS, MAX_NAME_LENGTH } from '../timer/constants';
+
+const PRESETS: readonly number[] = __DEV__ ? [DEV_GOAL_PRESET_MS, ...GOAL_PRESETS_MS] : GOAL_PRESETS_MS;
 import { formatGoal } from '../timer/format';
 
 export interface NewSessionSheetProps {
@@ -87,7 +89,7 @@ export function NewSessionSheet({ visible, recentNames, onStart, onClose }: NewS
               <Text style={styles.fillsRing}>Fills the ring</Text>
             </View>
             <View style={styles.goalRow}>
-              {GOAL_PRESETS_MS.map((preset) => {
+              {PRESETS.map((preset) => {
                 const selected = preset === goalMs;
                 return (
                   <Pressable

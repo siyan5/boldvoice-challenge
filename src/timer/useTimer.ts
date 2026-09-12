@@ -10,7 +10,13 @@ import {
 } from './persistence';
 import { toLiveActivityAttributes, toLiveActivityContentState } from './liveActivityState';
 import { planLiveActivitySync } from './liveActivitySync';
-import { endActivity, isLiveActivitySupported, startActivity, updateActivity } from '../../modules/live-activity';
+import {
+  endActivity,
+  getActivityCount,
+  isLiveActivitySupported,
+  startActivity,
+  updateActivity,
+} from '../../modules/live-activity';
 
 export interface TimerController {
   state: TimerState;
@@ -93,10 +99,16 @@ export function useTimer(): TimerController {
 
 async function syncLiveActivity(plan: ReturnType<typeof planLiveActivitySync>, state: TimerState): Promise<void> {
   if (plan === 'none') return;
-  if (plan === 'end') return endActivity();
-  const attributes = toLiveActivityAttributes(state);
-  const content = toLiveActivityContentState(state);
-  if (!attributes || !content) return;
-  if (plan === 'start') await startActivity(attributes, content);
-  else await updateActivity(content);
+  if (plan === 'end') {
+    await endActivity();
+  } else {
+    const attributes = toLiveActivityAttributes(state);
+    const content = toLiveActivityContentState(state);
+    if (!attributes || !content) return;
+    if (plan === 'start') await startActivity(attributes, content);
+    else await updateActivity(content);
+  }
+  // Diagnostic for the zombie edge case: after every transition the OS should hold
+  // exactly one activity while a session is live and zero otherwise.
+  if (__DEV__) console.log(`[live-activity] ${plan} -> activities: ${await getActivityCount()}`);
 }
