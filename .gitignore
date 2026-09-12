@@ -42,3 +42,6 @@ yarn-error.*
 
 # local design references
 /boldvoice_ui_inspiration/
+
+# design bundle (extracted into docs/design)
+*.zip
