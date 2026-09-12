@@ -15,7 +15,8 @@
     },
     "plugins": [
       "@bacons/apple-targets",
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ]
   }
 }

@@ -1,4 +1,4 @@
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { GradientButton } from '../components';
 import { colors, fonts, radii, shadows, type } from '../theme';
 import { formatClockTime, formatHHMMSS } from '../timer/format';
@@ -10,9 +10,10 @@ export interface SessionCompleteScreenProps {
   state: CompletedState;
   onStartAnother(): void;
   onDone(): void;
+  onHistory?(): void;
 }
 
-export function SessionCompleteScreen({ state, onStartAnother, onDone }: SessionCompleteScreenProps) {
+export function SessionCompleteScreen({ state, onStartAnother, onDone, onHistory }: SessionCompleteScreenProps) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
@@ -54,6 +55,11 @@ export function SessionCompleteScreen({ state, onStartAnother, onDone }: Session
       <View style={styles.actions}>
         <GradientButton label="Start another session" onPress={onStartAnother} />
         <GradientButton label="Done" onPress={onDone} variant="ghost" />
+        {onHistory && (
+          <Pressable onPress={onHistory} style={styles.historyLink}>
+            <Text style={styles.historyLinkText}>View history</Text>
+          </Pressable>
+        )}
       </View>
       </View>
     </SafeAreaView>
@@ -137,6 +143,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.ink,
+  },
+  historyLink: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+  },
+  historyLinkText: {
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    color: colors.accentEnd,
   },
   actions: {
     marginTop: 24,

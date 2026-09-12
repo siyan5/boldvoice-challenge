@@ -1,12 +1,13 @@
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { GradientButton, ProgressRing } from '../components';
 import { colors, fonts, shadows } from '../theme';
 
 export interface FirstRunScreenProps {
   onStart(): void;
+  onHistory?(): void;
 }
 
-export function FirstRunScreen({ onStart }: FirstRunScreenProps) {
+export function FirstRunScreen({ onStart, onHistory }: FirstRunScreenProps) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
@@ -28,6 +29,11 @@ export function FirstRunScreen({ onStart }: FirstRunScreenProps) {
       </View>
 
       <GradientButton label="Start a session" onPress={onStart} style={styles.startButton} />
+      {onHistory && (
+        <Pressable onPress={onHistory} style={styles.historyLink}>
+          <Text style={styles.historyLinkText}>View history</Text>
+        </Pressable>
+      )}
       </View>
     </SafeAreaView>
   );
@@ -86,6 +92,16 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     textAlign: 'center',
     maxWidth: 260,
+  },
+  historyLink: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  historyLinkText: {
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    color: colors.inkMuted,
   },
   startButton: {
     marginBottom: 12,

@@ -10,6 +10,9 @@ import {
 } from './persistence';
 import { toLiveActivityAttributes, toLiveActivityContentState } from './liveActivityState';
 import { planLiveActivitySync } from './liveActivitySync';
+import { appendSession, loadHistory, recordFromCompleted } from '../history/historyStore';
+import { SessionRecord } from '../history/types';
+import { ensureNotificationPermission, syncGoalNotification } from '../notifications/goalNotification';
 import {
   endActivity,
   getActivityCount,
@@ -23,6 +26,7 @@ export interface TimerController {
   elapsedMs: number;
   remainingMs: number;
   recentNames: string[];
+  history: SessionRecord[];
   liveActivityEnabled: boolean;
   liveActivitySupported: boolean;
   start(name: string, goalMs: number): void;
@@ -38,15 +42,17 @@ export function useTimer(): TimerController {
   const [now, setNow] = useState(() => Date.now());
   const [hydrated, setHydrated] = useState(false);
   const [recentNames, setRecentNames] = useState<string[]>([]);
+  const [history, setHistory] = useState<SessionRecord[]>([]);
   const [liveActivityEnabled, setEnabled] = useState(true);
   const prev = useRef({ state: initialTimerState, enabled: true });
 
   // Re-adopt a persisted session and settings (app was killed or relaunched).
   useEffect(() => {
-    Promise.all([loadTimerState(), loadRecentNames(), loadLiveActivityEnabled()]).then(
-      ([persisted, names, enabled]) => {
+    Promise.all([loadTimerState(), loadRecentNames(), loadLiveActivityEnabled(), loadHistory()]).then(
+      ([persisted, names, enabled, records]) => {
         prev.current = { state: initialTimerState, enabled };
         setRecentNames(names);
+        setHistory(records);
         setEnabled(enabled);
         dispatch({ type: 'hydrate', state: persisted });
         setHydrated(true);
@@ -84,9 +90,12 @@ export function useTimer(): TimerController {
     const isNewSession =
       (state.status === 'running' || state.status === 'paused') &&
       (prevState.status === 'idle' || prevState.status === 'completed' || prevState.startedAt !== state.startedAt);
+    const justCompleted = state.status === 'completed' && prevState.status !== 'completed';
     prev.current = next;
     saveTimerState(state);
     if (isNewSession) saveRecentName(state.name).then(setRecentNames);
+    if (justCompleted) appendSession(recordFromCompleted(state)).then(setHistory);
+    syncGoalNotification(state);
     syncLiveActivity(plan, state).catch((e) => console.warn('Live Activity sync failed', e));
   }, [state, liveActivityEnabled, hydrated]);
 
@@ -95,9 +104,13 @@ export function useTimer(): TimerController {
     elapsedMs: elapsedMs(state, now),
     remainingMs: remainingMs(state, now),
     recentNames,
+    history,
     liveActivityEnabled,
     liveActivitySupported: isLiveActivitySupported(),
-    start: (name, goalMs) => dispatch({ type: 'start', name, goalMs, now: Date.now() }),
+    start: (name, goalMs) => {
+      ensureNotificationPermission();
+      dispatch({ type: 'start', name, goalMs, now: Date.now() });
+    },
     pause: () => dispatch({ type: 'pause', now: Date.now() }),
     resume: () => dispatch({ type: 'resume', now: Date.now() }),
     stop: () => dispatch({ type: 'stop', now: Date.now() }),
