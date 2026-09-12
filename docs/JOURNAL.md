@@ -60,3 +60,7 @@ Chronological log of actions, bugs, and direction changes. Newest at the bottom.
 - Verified the three fixes after an `xcodebuild` and `simctl install`: paused lock screen `0:11` (was `00:00:11`) with the full name and "0% of 25m goal"; running lock screen `0:16` with "2h goal" and a 39-character name truncated only at the row's real limit; expanded island `0:21` and "0:39 left"; one minute later the lock screen read "0:21 over goal" with the bar full. 103 tests and typecheck unchanged.
 - Gotcha: the simulator's pinyin keyboard spaced injected text into syllables ("re vie wing t he…"). Not an app bug; use the recent-name chips or type by hand.
 - Gotcha: two Claude sessions shared this working tree. One committed the other's uncommitted widget edit inside a docs commit (1c404f0). Keep one session per checkout, or commit before switching.
+
+## 2026-09-12, features: goal notification and history
+
+- Built in parallel by two subagents: `src/notifications/goalNotification.ts` (pure trigger calculation and content, schedule/cancel wrappers, permission request, foreground presentation; 8 tests) and `src/history/` (store, day grouping and totals, History screen; 18 tests). Main thread integrated both into `useTimer` (append on `completed`, notification sync on every transition, permission prompt on first start), added History entry points to the first-run and summary screens, and the router branch. 129 tests, typecheck clean. Decisions D11 and D12.

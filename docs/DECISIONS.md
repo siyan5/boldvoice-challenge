@@ -69,3 +69,17 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Context:** The handoff is complete and high-fidelity; the challenge budget is a few hours.
 - **Decision:** Cut App Intent Pause/Stop buttons in the island (needs the intent compiled into both targets, background app launch and a native-to-JS reconciliation path), the overflow menu (rename, change goal), the custom goal wheel (a dependency and a modal inside a modal), Archivo inside the widget extension (font bundling in an extension), the specified animations, and the percentage text inside rings (it cannot refresh between updates and would read stale).
 - **Consequences:** Everything visible in a demo matches the handoff; the cut items are the natural next features. Rename and change-goal are cheap now that `goalMs` is in the content state.
+
+## D11. Goal-reached notification is a scheduled local notification
+
+- **Context:** The widget's "over goal" switch depends on an app-sent update at the goal instant, which cannot happen if the app is suspended or killed (D7, D9).
+- **Decision:** On every transition the app cancels and, while running with the goal ahead, re-schedules one local notification (`expo-notifications`, fixed identifier) for the goal instant. Permission is requested on the first session start. The banner is shown even in the foreground.
+- **Alternatives:** Push notifications through a server (works everywhere but needs a backend), or nothing (the widget then only updates when the app returns).
+- **Consequences:** The user is told at the right moment regardless of app state. The widget still needs the app-sent update to switch its own copy; tapping the notification brings the app forward, which fires the pending timer.
+
+## D12. Session history lives in AsyncStorage, newest first, capped
+
+- **Context:** The summary screen already computed everything a record needs; users asked for history.
+- **Decision:** `src/history/` stores `SessionRecord`s (id, name, goal, start, end, total, pauses) under one key, newest first, deduped by id, capped at 500; grouping by local day and per-name totals are pure functions with tests. A record is appended when a session reaches `completed`.
+- **Alternatives:** SQLite (overkill for hundreds of rows), or deriving history from nothing (there was no store).
+- **Consequences:** Recent-name chips could later derive from history instead of their own list. Sync and export are straightforward additions.
