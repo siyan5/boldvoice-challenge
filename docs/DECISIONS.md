@@ -14,7 +14,7 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Context:** ActivityKit budgets updates, and a lock screen widget cannot receive a JS message every second while the app is backgrounded.
 - **Decision:** The timer's source of truth is `{ startedAt, accumulatedMs, pausedAt }`. JS sends these to native only on state transitions (start, pause, resume, stop). The widget renders the running time with SwiftUI `Text(timerInterval:)`, which counts up on its own with zero updates.
 - **Alternatives:** A JS interval calling `updateActivity` every second. Breaks the moment the app is backgrounded and burns the update budget.
-- **Consequences:** Backgrounding is free. Pause sends one update with a frozen elapsed value. The same state shape drives the RN screen, so the two views cannot drift.
+- **Consequences:** Backgrounding is free. Pause sends one update with a frozen elapsed value. The same state shape drives the RN screen, so the two views cannot drift. Since the design update the content state also carries `goalMs`, so a goal can change without restarting the activity; only the name lives in the fixed attributes.
 
 ## D3. Widget extension target via `@bacons/apple-targets`
 
@@ -23,7 +23,7 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Alternatives:** Check in a hand-edited `ios/` folder. Faster once, but every prebuild would wipe it.
 - **Consequences:** `ios/` stays gitignored and the whole native project is reproducible from a clean clone.
 
-## D4. Progress ring measures a fixed 25-minute goal
+## D4. Progress ring measures a fixed 25-minute goal (superseded by D9)
 
 - **Context:** The spec asks for a progress ring in the expanded Dynamic Island, but a count-up timer has no natural end.
 - **Decision:** The ring shows elapsed time as a fraction of a fixed 25-minute focus goal, clamped at 100%.
@@ -56,3 +56,16 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Decision:** `modules/live-activity/index.ts` chains every native call on one promise, so calls run strictly in call order, and a rejection does not break the chain. Rapid start/stop is safe by construction, not by mitigation; a unit test pins the interleaving.
 - **Alternatives:** Cancellation tokens or "latest wins" logic. More code, and harder to reason about than a queue.
 - **Consequences:** A hung native call would stall later calls. ActivityKit calls take milliseconds, so this is accepted. The native `startActivity` additionally leaves an existing activity untouched when its attributes and content state are identical, so relaunch after a kill does not blink the activity off and on.
+
+## D9. Every session carries its own goal
+
+- **Context:** The design handoff makes the goal a first-class part of a session (default 2h; 25m / 50m / 1h / 2h presets) and derives the ring, "time left" and "over goal" from it. Supersedes D4.
+- **Decision:** `goalMs` is part of the reducer's session fields and of the Live Activity content state. The reducer falls back to the default for invalid values. Past the goal the timer keeps counting; the widget shows time over goal.
+- **Alternatives:** Keep the fixed constant (rejected by the design), or stop the session at the goal (a study timer should not cut a session short).
+- **Consequences:** The goal-reached moment needs one app-sent update because widgets do not re-render on their own (see D7). A 1-minute preset exists in development builds so the moment can be demonstrated.
+
+## D10. What was cut from the design handoff, and why
+
+- **Context:** The handoff is complete and high-fidelity; the challenge budget is a few hours.
+- **Decision:** Cut App Intent Pause/Stop buttons in the island (needs the intent compiled into both targets, background app launch and a native-to-JS reconciliation path), the overflow menu (rename, change goal), the custom goal wheel (a dependency and a modal inside a modal), Archivo inside the widget extension (font bundling in an extension), the specified animations, and the percentage text inside rings (it cannot refresh between updates and would read stale).
+- **Consequences:** Everything visible in a demo matches the handoff; the cut items are the natural next features. Rename and change-goal are cheap now that `goalMs` is in the content state.

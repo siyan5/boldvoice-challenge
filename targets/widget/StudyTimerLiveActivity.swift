@@ -22,15 +22,6 @@ private let badgeGradient = LinearGradient(
   endPoint: .bottomTrailing
 )
 
-/// Formats a duration as zero-padded HH:MM:SS. Hours are not capped at 99.
-func formatHMS(_ seconds: TimeInterval) -> String {
-  let total = Int(seconds.rounded(.down))
-  let hours = total / 3600
-  let minutes = (total % 3600) / 60
-  let secs = total % 60
-  return String(format: "%02d:%02d:%02d", hours, minutes, secs)
-}
-
 /// Formats a goal duration like "2h", "50m", "2h 30m".
 func formatGoal(_ goalMs: Double) -> String {
   let totalMinutes = Int((goalMs / 1000 / 60).rounded())
@@ -47,23 +38,20 @@ func formatGoal(_ goalMs: Double) -> String {
 
 // MARK: - Shared, system-driven views (see D7: no per-second updates)
 
-/// Shows a live counting timer when running, or a frozen HH:MM:SS when paused.
+/// The elapsed-time clock. One system timer view in both states: it counts up while
+/// running and, when paused, freezes at `pauseTime`. Using the same view for both keeps
+/// the format identical across a pause (the system renders "7:03", not "00:07:03").
 struct TimerText: View {
   let state: StudyTimerAttributes.ContentState
   let font: Font
   var alignment: TextAlignment = .trailing
 
   var body: some View {
-    Group {
-      if state.isPaused {
-        Text(formatHMS(state.elapsed()))
-      } else {
-        Text(
-          timerInterval: state.timerStart...(state.timerStart.addingTimeInterval(100 * 3600)),
-          countsDown: false
-        )
-      }
-    }
+    Text(
+      timerInterval: state.timerStart...(state.timerStart.addingTimeInterval(100 * 3600)),
+      pauseTime: state.isPaused ? state.timerStart.addingTimeInterval(state.elapsed()) : nil,
+      countsDown: false
+    )
     .font(font)
     .monospacedDigit()
     // Timer text greedily claims horizontal space; pin it to the wanted edge.
@@ -166,6 +154,9 @@ struct StudyTimerLockScreenView: View {
           .font(.system(size: 15, weight: .semibold))
           .foregroundStyle(.white.opacity(state.isPaused ? 0.8 : 1))
           .lineLimit(1)
+          // Size the name before the greedy timer text, so it is not truncated
+          // while the timer sits in empty space.
+          .layoutPriority(1)
 
         if state.isPaused {
           Text("PAUSED")
@@ -178,13 +169,19 @@ struct StudyTimerLockScreenView: View {
 
         TimerText(state: state, font: .system(size: 22, weight: .bold))
           .foregroundStyle(.white.opacity(state.isPaused ? 0.8 : 1))
+          .lineLimit(1)
+          .frame(minWidth: 96, alignment: .trailing) // room for "9:59:59" at 22pt
       }
 
       GoalBar(state: state)
         .frame(height: 5)
 
       HStack {
-        Text("\(Int(state.progress() * 100))% of \(formatGoal(state.goalMs)) goal")
+        // The percent is computed at render time, so it would freeze while running (D7).
+        // Show it only when paused, where the value is genuinely fixed.
+        Text(state.isPaused
+          ? "\(Int(state.progress() * 100))% of \(formatGoal(state.goalMs)) goal"
+          : "\(formatGoal(state.goalMs)) goal")
         Spacer()
         RemainingText(state: state, isStale: isStale)
       }

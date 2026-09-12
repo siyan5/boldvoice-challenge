@@ -4,14 +4,15 @@ A React Native (Expo) iOS study timer. The app controls the timer; a SwiftUI Liv
 
 ## Status (2026-09-12)
 
-Working end to end in the simulator:
+Complete for the challenge's must-haves, verified in the iOS 26 simulator on an iPhone 17 Pro:
 
-- Start a named session, pause, resume, stop. Elapsed time in HH:MM:SS.
-- Live Activity appears on start, counts up on the lock screen without any updates from the app, freezes with a "Paused" caption on pause, and disappears on stop.
-- Dynamic Island: compact (name and time), expanded (name, time, progress bar), minimal (time).
-- Sessions survive app relaunch and reinstall; the activity is re-created from stored state.
+- First-run screen, new-session sheet (name, recent names, goal of 25m / 50m / 1h / 2h), timer screen with a progress ring, pause / resume / stop, session summary with total time, start and end times, and pause count.
+- Live Activity on the lock screen: name, live count-up, goal bar, percent and time remaining; paused state frozen with a PAUSED label; "x over goal" once the goal passes.
+- Dynamic Island: compact (name and time), expanded (ring, kicker, name, goal and remaining, large timer), minimal (ring). Paused states in amber.
+- Sessions survive backgrounding, force-kill, relaunch and reinstall. Rapid start/stop leaves no orphaned activities.
+- A Live Activity toggle in the app ends and restarts the activity without touching the timer.
 
-Redesigned to the Claude Design handoff in `docs/design/`: per-session goal (25m/50m/1h/2h), progress ring, session summary, recent names, and a Live Activity toggle. In development builds a 1-minute goal tile is added for testing.
+Design follows the Claude Design handoff in `docs/design/`. Deliberately cut from the handoff: App Intent buttons in the island, the overflow menu (rename, change goal), the custom goal wheel, Archivo in the widget, animations, and percentage text inside rings. In development builds a 1-minute goal tile is added for testing. Setup steps below were exercised on the development machine, not yet from a clean clone.
 
 ## Setup
 
@@ -40,26 +41,51 @@ npm test
 npm run typecheck
 ```
 
-## Trying it in the simulator
+For iteration after the first run, a plain Xcode build exits when done and keeps Metro separate, which is easier to script:
 
-- Start a session in the app, then press `Cmd+Shift+H` (Device > Home). The compact Dynamic Island shows the name and timer. Click and hold the island to expand it.
-- Press `Cmd+L` (Device > Lock) to see the lock-screen banner.
+```bash
+xcodebuild -workspace ios/StudyTimer.xcworkspace -scheme StudyTimer -configuration Debug -sdk iphonesimulator -destination 'name=iPhone 17 Pro' build
+```
+
+Then `xcrun simctl install booted <path to StudyTimer.app in DerivedData>` and open the dev client; keep `npx expo start --dev-client` running in another terminal. JavaScript changes hot reload; Swift changes need the build.
+
+## Live demo script
+
+1. Launch the app on the simulator. First-run screen. Tap "Start a session", type a name, pick a goal (the 1m tile exists only in development builds), "Start timer". Tap Allow on the one-time Live Activities prompt.
+2. `Cmd+Shift+H` for the home screen: compact island with the name and a live timer. Click and hold the island: expanded view with the animated ring, "STUDYING", goal and time remaining, large timer.
+3. `Cmd+L`: lock-screen card with the gradient bar and "x left". Wake the screen (move the mouse) if it has dimmed into Always-On, where iOS hides timer seconds.
+4. Back in the app, Pause: ring goes grey, PAUSED pill; island and lock screen freeze and turn amber. Resume.
+5. With a 1m goal, wait for it to pass: the ring fills, the app says "Goal reached", the island and lock screen say "x over goal" and keep counting.
+6. Kill the app from the app switcher: the island keeps the activity. Relaunch: the session is re-adopted with the correct elapsed time and the activity is untouched.
+7. Stop: the activity disappears immediately; the summary screen shows total time, start and end, and the pause count.
+
+## Simulator notes
+
+- The Simulator menus are in the Mac menu bar: Device > Home (`Cmd+Shift+H`), Device > Lock (`Cmd+L`). Unlock by pressing Home and dragging up from the bottom edge.
 - A few seconds after locking, the simulator dims into Always-On mode. In that mode iOS renders every timer with the seconds as `––` and refreshes once per minute. This is system behavior, not the app. Move the mouse or press a key to wake the display and the seconds return.
-- The first activity triggers an "Allow Live Activities" prompt. Tap Allow.
+- The minimal island presentation appears only when another app's Live Activity shares the island. The simulator's Clock app does not launch, so it was not observed; the view exists and typechecks.
+- The OS-level Live Activities switch (Settings > Study Timer) was not reached in the simulator. When it is off, the app's status card reads "Live Activities are off" with a link to Settings, and requests fail quietly.
 
 ## How it works
 
 ```
-src/timer/timerReducer.ts     pure state machine: idle | running | paused, timestamps only
-src/timer/useTimer.ts         React hook: reducer + clock tick + persistence + Live Activity sync
-src/timer/liveActivityState.ts  maps timer state to the ActivityKit content state
-src/timer/persistence.ts      AsyncStorage save/load with a shape guard
-src/screens/TimerScreen.tsx   the UI
-modules/live-activity/        local Expo module: TypeScript API + Swift ActivityKit bridge
-targets/widget/               widget extension: Live Activity + Dynamic Island views (SwiftUI)
+src/timer/timerReducer.ts       pure state machine: idle | running | paused | completed, timestamps only
+src/timer/useTimer.ts           React hook: reducer, clock tick, persistence, Live Activity sync, goal-instant update
+src/timer/liveActivitySync.ts   pure rule: which ActivityKit call a transition needs (start / update / end / none)
+src/timer/liveActivityState.ts  maps timer state to the ActivityKit attributes and content state
+src/timer/persistence.ts        AsyncStorage: session, recent names, Live Activity toggle, with shape guards
+src/timer/format.ts             HH:MM:SS, goal labels, remaining time, clock times
+src/screens/                    FirstRun, NewSessionSheet, Timer, SessionComplete (presentational)
+src/components/                 GradientButton, ProgressRing (SVG), Pill
+src/theme.ts                    design tokens from the handoff
+App.tsx                         the state machine is the router
+modules/live-activity/          local Expo module: serialized TypeScript API + Swift ActivityKit bridge
+targets/widget/                 widget extension: Live Activity + Dynamic Island views (SwiftUI)
 ```
 
-The key idea is that timestamps, not ticks, cross the bridge. The timer state is `{ runningSince, accumulatedMs }`. On start, pause, resume, and stop the app sends one update to the Live Activity. While running, the widget uses `Text(timerInterval:)` and `ProgressView(timerInterval:)`, so iOS animates the clock and bar itself. Backgrounding or killing the app costs nothing.
+The key idea is that timestamps, not ticks, cross the bridge. The timer state is `{ runningSince, accumulatedMs, goalMs }`. On start, pause, resume, and stop the app sends one update to the Live Activity, plus one at the instant the goal is reached. While running, the widget uses `Text(timerInterval:)` and `ProgressView(timerInterval:)`, so iOS animates the clock, bar and ring itself. Backgrounding or killing the app costs nothing.
+
+Every bridge call is queued behind the previous one, so rapid start/stop cannot interleave and leave an orphaned activity. On relaunch, the native start recognises an identical surviving activity and leaves it alone.
 
 `StudyTimerAttributes.swift` is the contract shared by the app and the widget. It exists in both `modules/live-activity/ios/` and `targets/widget/`, and a Jest test fails if the copies differ.
 
@@ -87,12 +113,15 @@ The widget target is generated by the `@bacons/apple-targets` config plugin from
 
 ## Documentation
 
+- [docs/DISCUSSION.md](docs/DISCUSSION.md): the review talking points: architecture and why, what was hardest, what the AI got wrong, what to improve.
 - [docs/DECISIONS.md](docs/DECISIONS.md): architecture decisions with alternatives and consequences.
-- [docs/JOURNAL.md](docs/JOURNAL.md): chronological log of actions, bugs, environment problems, and what the AI got wrong.
+- [docs/JOURNAL.md](docs/JOURNAL.md): chronological log of actions, bugs, environment problems, and mistakes.
+- [docs/design/HANDOFF.md](docs/design/HANDOFF.md): the design spec the UI follows, with screenshots alongside.
 - [docs/CHALLENGE.md](docs/CHALLENGE.md): the original brief.
 
 ## Assumptions
 
-- The progress bar and ring measure progress toward a fixed 25-minute focus goal, since a count-up timer has no natural end (decision D4).
+- A count-up timer has no natural end, so every session carries a goal (default 2h, presets 25m / 50m / 1h / 2h) that the bar and ring measure against. Past the goal the timer keeps counting and the widget shows time over goal (decision D9).
 - Only one session, and therefore one Live Activity, exists at a time. Starting a new session ends the previous activity first.
-- Simulator only; no physical device was used, which the challenge allows.
+- When the app is killed, the activity persists with its last state rather than ending; the challenge allows either.
+- Simulator only; no physical device was used, which the challenge allows. Live Activities cannot be started while the app is in the background, which matters only for the goal-instant update (see decision D7).
