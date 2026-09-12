@@ -1,3 +1,4 @@
+import { DEFAULT_SESSION_NAME } from './constants';
 export type TimerState =
   | { status: 'idle' }
   | { status: 'running'; name: string; runningSince: number; accumulatedMs: number }
@@ -7,7 +8,8 @@ export type TimerAction =
   | { type: 'start'; name: string; now: number }
   | { type: 'pause'; now: number }
   | { type: 'resume'; now: number }
-  | { type: 'stop' };
+  | { type: 'stop' }
+  | { type: 'hydrate'; state: TimerState }; // re-adopt a persisted session on app launch
 
 export const initialTimerState: TimerState = { status: 'idle' };
 
@@ -17,7 +19,7 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       const trimmed = action.name.trim();
       return {
         status: 'running',
-        name: trimmed === '' ? 'Study Session' : trimmed,
+        name: trimmed === '' ? DEFAULT_SESSION_NAME : trimmed,
         runningSince: action.now,
         accumulatedMs: 0,
       };
@@ -43,6 +45,8 @@ export function timerReducer(state: TimerState, action: TimerAction): TimerState
       if (state.status === 'idle') return state;
       return { status: 'idle' };
     }
+    case 'hydrate':
+      return action.state;
   }
 }
 

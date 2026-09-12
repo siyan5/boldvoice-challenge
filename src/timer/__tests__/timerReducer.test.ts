@@ -171,6 +171,13 @@ describe('timerReducer: stop', () => {
   });
 });
 
+describe('timerReducer: hydrate', () => {
+  it('replaces the state with the persisted one', () => {
+    const persisted: TimerState = { status: 'paused', name: 'Math', accumulatedMs: 5000 };
+    expect(timerReducer(initialTimerState, { type: 'hydrate', state: persisted })).toBe(persisted);
+  });
+});
+
 describe('elapsedMs', () => {
   it('is 0 when idle', () => {
     expect(elapsedMs(initialTimerState, 5000)).toBe(0);
