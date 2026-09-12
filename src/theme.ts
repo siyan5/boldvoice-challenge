@@ -1,4 +1,7 @@
 // Design tokens from docs/design/HANDOFF.md.
+import type { TextStyle } from 'react-native';
+
+const TABULAR: TextStyle['fontVariant'] = ['tabular-nums'];
 
 export const colors = {
   ground: '#eef0f4',
@@ -53,7 +56,7 @@ export const type = {
     fontFamily: fonts.extrabold,
     fontSize: 48,
     letterSpacing: -1.44,
-    fontVariant: ['tabular-nums'] as const,
+    fontVariant: TABULAR,
   },
   buttonLabel: {
     fontFamily: fonts.bold,
