@@ -8,7 +8,8 @@ export interface FirstRunScreenProps {
 
 export function FirstRunScreen({ onStart }: FirstRunScreenProps) {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Focus</Text>
         <Text style={styles.subtitle}>Track study time on your lock screen.</Text>
@@ -27,11 +28,16 @@ export function FirstRunScreen({ onStart }: FirstRunScreenProps) {
       </View>
 
       <GradientButton label="Start a session" onPress={onStart} style={styles.startButton} />
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: colors.ground,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.ground,

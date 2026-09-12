@@ -14,7 +14,8 @@ export interface SessionCompleteScreenProps {
 
 export function SessionCompleteScreen({ state, onStartAnother, onDone }: SessionCompleteScreenProps) {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
       <Text style={[type.uppercaseLabel, styles.kicker]}>Session ended</Text>
 
       <View style={styles.card}>
@@ -54,11 +55,16 @@ export function SessionCompleteScreen({ state, onStartAnother, onDone }: Session
         <GradientButton label="Start another session" onPress={onStartAnother} />
         <GradientButton label="Done" onPress={onDone} variant="ghost" />
       </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: colors.ground,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.ground,

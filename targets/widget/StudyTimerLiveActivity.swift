@@ -65,6 +65,8 @@ struct TimerText: View {
     }
     .font(font)
     .monospacedDigit()
+    // Timer text greedily claims horizontal space; align it to the trailing edge.
+    .multilineTextAlignment(.trailing)
   }
 }
 
@@ -79,7 +81,8 @@ struct RemainingText: View {
     } else if isStale {
       Text("Goal reached")
     } else {
-      Text(state.goalEnd, style: .relative) + Text(" left")
+      (Text(state.goalEnd, style: .relative) + Text(" left"))
+        .multilineTextAlignment(.trailing)
     }
   }
 }

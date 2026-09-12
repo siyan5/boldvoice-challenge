@@ -38,3 +38,9 @@ Chronological log of actions, bugs, and direction changes. Newest at the bottom.
 - The module now sets `staleDate` to the goal end while running, so the widget re-renders once at that moment and can show "Goal reached" via `context.isStale` without an app update.
 - Gotcha fixed pre-emptively: on iOS, `fontWeight` combined with a custom `fontFamily` makes React Native fall back to the system font. All text styles use the weight-specific Archivo family names only.
 - Gotcha fixed: the shared-attributes guard test uses Node's `fs`, which had never been typechecked; added `@types/node` and `"node"` to the tsconfig `types` list.
+- Step 1 (screens and widget), four subagents in parallel, then integration in the main thread. Bugs found on the first run and fixed:
+  - All three screens rendered edge to edge: React Native's `SafeAreaView` on iOS replaces any `padding` you set with the safe-area insets. Moved the padding to an inner `View`.
+  - The timer ring overflowed into the status row and controls: the ring wrapper and a bottom spacer both had `flex: 1`, so they split the leftover space and the 286pt ring did not fit its half. Removed the spacer and pinned the status card with `marginTop: 'auto'`.
+  - Lock-screen timer and "left" text would not right-align: `Text(timerInterval:)` and relative-date `Text` greedily claim the full row width in SwiftUI. Added `.multilineTextAlignment(.trailing)`.
+  - Metro started with `CI=1` disables file watching, so edits never reached the app. Restarted it without CI for hot reload.
+- Verified after fixes: first-run screen, new-session sheet with recent chips and goal tiles, timer screen with the SVG ring, Dynamic Island compact (accent name, timer) and expanded (animated ring, STUDYING kicker, goal and live remaining time, large timer).

@@ -87,7 +87,8 @@ export function TimerScreen({
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.sessionName} numberOfLines={1}>
           {state.name}
@@ -123,9 +124,7 @@ export function TimerScreen({
         <Text style={styles.newSessionLabel}>Start new session</Text>
         <Text style={styles.newSessionPlus}>+</Text>
       </Pressable>
-      <View style={styles.divider} />
-
-      <View style={styles.spacer} />
+      <View style={[styles.divider, styles.dividerBottom]} />
 
       <View style={styles.liveCard}>
         {liveIcon}
@@ -147,11 +146,16 @@ export function TimerScreen({
           />
         )}
       </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: colors.ground,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.ground,
@@ -183,6 +187,7 @@ const styles = StyleSheet.create({
   },
   ringWrap: {
     flex: 1,
+    minHeight: 286,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -202,6 +207,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 24,
+    marginBottom: 20,
   },
   controlButton: {
     flex: 1,
@@ -210,6 +216,9 @@ const styles = StyleSheet.create({
   divider: {
     height: 2,
     backgroundColor: colors.divider,
+  },
+  dividerBottom: {
+    marginBottom: 16,
   },
   newSessionRow: {
     flexDirection: 'row',
@@ -227,10 +236,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.accentEnd,
   },
-  spacer: {
-    flex: 1,
-  },
   liveCard: {
+    marginTop: 'auto',
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
@@ -238,7 +246,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.cardSm,
     paddingVertical: 14,
     paddingHorizontal: 18,
-    marginBottom: 12,
   },
   liveIcon: {
     width: 36,
