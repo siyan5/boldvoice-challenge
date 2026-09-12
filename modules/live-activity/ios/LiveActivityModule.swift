@@ -4,10 +4,9 @@ import ExpoModulesCore
 // Mirrors LiveActivityAttributes in ../index.ts.
 struct AttributesRecord: Record {
   @Field var name: String = ""
-  @Field var goalMs: Double = 0
 
   func toAttributes() -> StudyTimerAttributes {
-    StudyTimerAttributes(name: name, goalMs: goalMs)
+    StudyTimerAttributes(name: name)
   }
 }
 
@@ -18,9 +17,18 @@ struct ContentStateRecord: Record {
   @Field var isPaused: Bool = false
   @Field var timerStartMs: Double = 0
   @Field var elapsedMs: Double = 0
+  @Field var goalMs: Double = 0
 
   func toContentState() -> StudyTimerAttributes.ContentState {
-    StudyTimerAttributes.ContentState(isPaused: isPaused, timerStartMs: timerStartMs, elapsedMs: elapsedMs)
+    StudyTimerAttributes.ContentState(
+      isPaused: isPaused, timerStartMs: timerStartMs, elapsedMs: elapsedMs, goalMs: goalMs)
+  }
+
+  // While running, mark the activity stale at the moment the goal is reached so the
+  // widget re-renders once (context.isStale) and can say "Goal reached" without an update.
+  func toContent() -> ActivityContent<StudyTimerAttributes.ContentState> {
+    let state = toContentState()
+    return ActivityContent(state: state, staleDate: state.isPaused ? nil : state.goalEnd)
   }
 }
 
@@ -38,16 +46,15 @@ public class LiveActivityModule: Module {
       for activity in Activity<StudyTimerAttributes>.activities {
         await activity.end(dismissalPolicy: .immediate)
       }
-      let content = ActivityContent(state: state.toContentState(), staleDate: nil)
       _ = try Activity<StudyTimerAttributes>.request(
         attributes: attributes.toAttributes(),
-        content: content,
+        content: state.toContent(),
         pushType: nil
       )
     }
 
     AsyncFunction("updateActivity") { (state: ContentStateRecord) async in
-      let content = ActivityContent(state: state.toContentState(), staleDate: nil)
+      let content = state.toContent()
       for activity in Activity<StudyTimerAttributes>.activities {
         await activity.update(content)
       }

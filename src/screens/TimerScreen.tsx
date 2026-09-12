@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { DEFAULT_GOAL_MS } from '../timer/constants';
 import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { TimerController } from '../timer/useTimer';
 import { formatHHMMSS } from '../timer/format';
-import { GOAL_MS } from '../timer/constants';
 
 const ACCENT = '#4A6CF7';
 
@@ -11,7 +11,7 @@ export function TimerScreen({ state, elapsedMs, start, pause, resume, stop }: Ti
 
   if (state.status === 'idle') {
     const submit = () => {
-      start(name);
+      start(name, DEFAULT_GOAL_MS);
       setName('');
     };
     return (
@@ -35,7 +35,7 @@ export function TimerScreen({ state, elapsedMs, start, pause, resume, stop }: Ti
   }
 
   const isPaused = state.status === 'paused';
-  const progress = Math.min(1, elapsedMs / GOAL_MS);
+  const progress = Math.min(1, elapsedMs / state.goalMs);
 
   return (
     <SafeAreaView style={styles.container}>

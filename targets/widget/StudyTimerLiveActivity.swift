@@ -38,11 +38,11 @@ struct StudyTimerProgress: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
       if state.isPaused {
-        ProgressView(value: min(1, state.elapsed() / attributes.goal))
+        ProgressView(value: min(1, state.elapsed() / state.goal))
       } else {
         // System-driven so the bar advances without updates from the app.
         ProgressView(
-          timerInterval: state.timerStart...state.timerStart.addingTimeInterval(attributes.goal),
+          timerInterval: state.timerStart...state.timerStart.addingTimeInterval(state.goal),
           countsDown: false,
           label: { EmptyView() },
           currentValueLabel: { EmptyView() }

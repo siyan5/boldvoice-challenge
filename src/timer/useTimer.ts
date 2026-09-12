@@ -1,30 +1,51 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { elapsedMs, initialTimerState, timerReducer, TimerState } from './timerReducer';
-import { loadTimerState, saveTimerState } from './persistence';
+import { elapsedMs, initialTimerState, remainingMs, timerReducer, TimerState } from './timerReducer';
+import {
+  loadLiveActivityEnabled,
+  loadRecentNames,
+  loadTimerState,
+  saveLiveActivityEnabled,
+  saveRecentName,
+  saveTimerState,
+} from './persistence';
 import { toLiveActivityAttributes, toLiveActivityContentState } from './liveActivityState';
-import { endActivity, startActivity, updateActivity } from '../../modules/live-activity';
+import { planLiveActivitySync } from './liveActivitySync';
+import { endActivity, isLiveActivitySupported, startActivity, updateActivity } from '../../modules/live-activity';
 
 export interface TimerController {
   state: TimerState;
   elapsedMs: number;
-  start(name: string): void;
+  remainingMs: number;
+  recentNames: string[];
+  liveActivityEnabled: boolean;
+  liveActivitySupported: boolean;
+  start(name: string, goalMs: number): void;
   pause(): void;
   resume(): void;
   stop(): void;
+  dismiss(): void;
+  setLiveActivityEnabled(enabled: boolean): void;
 }
 
 export function useTimer(): TimerController {
   const [state, dispatch] = useReducer(timerReducer, initialTimerState);
   const [now, setNow] = useState(() => Date.now());
   const [hydrated, setHydrated] = useState(false);
-  const prevState = useRef<TimerState>(initialTimerState);
+  const [recentNames, setRecentNames] = useState<string[]>([]);
+  const [liveActivityEnabled, setEnabled] = useState(true);
+  const prev = useRef({ state: initialTimerState, enabled: true });
 
-  // Re-adopt a persisted session (app was killed or relaunched).
+  // Re-adopt a persisted session and settings (app was killed or relaunched).
   useEffect(() => {
-    loadTimerState().then((persisted) => {
-      dispatch({ type: 'hydrate', state: persisted });
-      setHydrated(true);
-    });
+    Promise.all([loadTimerState(), loadRecentNames(), loadLiveActivityEnabled()]).then(
+      ([persisted, names, enabled]) => {
+        prev.current = { state: initialTimerState, enabled };
+        setRecentNames(names);
+        setEnabled(enabled);
+        dispatch({ type: 'hydrate', state: persisted });
+        setHydrated(true);
+      }
+    );
   }, []);
 
   // Tick the clock only while running.
@@ -35,39 +56,47 @@ export function useTimer(): TimerController {
     return () => clearInterval(id);
   }, [state.status]);
 
-  // Mirror every state transition to storage and to the Live Activity.
+  // Mirror every transition to storage and to the Live Activity.
   // Gated on hydration so the initial idle state does not wipe the persisted one.
   useEffect(() => {
     if (!hydrated) return;
-    const prev = prevState.current;
-    prevState.current = state;
+    const next = { state, enabled: liveActivityEnabled };
+    const plan = planLiveActivitySync(prev.current, next);
+    const prevState = prev.current.state;
+    const isNewSession =
+      (state.status === 'running' || state.status === 'paused') &&
+      (prevState.status === 'idle' || prevState.status === 'completed' || prevState.startedAt !== state.startedAt);
+    prev.current = next;
     saveTimerState(state);
-    syncLiveActivity(prev, state).catch((e) => console.warn('Live Activity sync failed', e));
-  }, [state, hydrated]);
+    if (isNewSession) saveRecentName(state.name).then(setRecentNames);
+    syncLiveActivity(plan, state).catch((e) => console.warn('Live Activity sync failed', e));
+  }, [state, liveActivityEnabled, hydrated]);
 
   return {
     state,
     elapsedMs: elapsedMs(state, now),
-    start: (name: string) => dispatch({ type: 'start', name, now: Date.now() }),
+    remainingMs: remainingMs(state, now),
+    recentNames,
+    liveActivityEnabled,
+    liveActivitySupported: isLiveActivitySupported(),
+    start: (name, goalMs) => dispatch({ type: 'start', name, goalMs, now: Date.now() }),
     pause: () => dispatch({ type: 'pause', now: Date.now() }),
     resume: () => dispatch({ type: 'resume', now: Date.now() }),
-    stop: () => dispatch({ type: 'stop' }),
+    stop: () => dispatch({ type: 'stop', now: Date.now() }),
+    dismiss: () => dispatch({ type: 'dismiss' }),
+    setLiveActivityEnabled: (enabled) => {
+      setEnabled(enabled);
+      saveLiveActivityEnabled(enabled);
+    },
   };
 }
 
-async function syncLiveActivity(prev: TimerState, next: TimerState): Promise<void> {
-  if (next.status === 'idle') {
-    if (prev.status !== 'idle') await endActivity();
-    return;
-  }
-  const attributes = toLiveActivityAttributes(next)!;
-  const content = toLiveActivityContentState(next)!;
-  // A new session starts from idle, from hydration, or when Start replaces a running session.
-  const isNewSession =
-    prev.status === 'idle' || (next.status === 'running' && prev.status === 'running');
-  if (isNewSession) {
-    await startActivity(attributes, content);
-  } else {
-    await updateActivity(content);
-  }
+async function syncLiveActivity(plan: ReturnType<typeof planLiveActivitySync>, state: TimerState): Promise<void> {
+  if (plan === 'none') return;
+  if (plan === 'end') return endActivity();
+  const attributes = toLiveActivityAttributes(state);
+  const content = toLiveActivityContentState(state);
+  if (!attributes || !content) return;
+  if (plan === 'start') await startActivity(attributes, content);
+  else await updateActivity(content);
 }
