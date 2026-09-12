@@ -29,3 +29,16 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Decision:** The ring shows elapsed time as a fraction of a fixed 25-minute focus goal, clamped at 100%.
 - **Alternatives:** A user-selected goal at session start. More UI for little demo value.
 - **Consequences:** Documented assumption; trivial to make configurable later since the goal is a single constant passed in the activity attributes.
+
+## D5. `StudyTimerAttributes.swift` is duplicated, with a test that keeps the copies identical
+
+- **Context:** The `ActivityAttributes` type must compile into both the app (inside the LiveActivity Expo module, which CocoaPods builds from `modules/live-activity/ios/`) and the widget extension (built from `targets/widget/`). CocoaPods cannot source files from outside the pod folder, and the plugin's `_shared` folder links into the app target, not into the pod.
+- **Decision:** Keep one copy in each location and add `sharedAttributes.test.ts`, which fails if the two files differ.
+- **Alternatives:** A symlink (git and prebuild handle them inconsistently), or a third shared pod (more plumbing than the whole feature).
+- **Consequences:** Editing the contract means editing two files; the test makes forgetting impossible to miss.
+
+## D6. Walking skeleton before polish
+
+- **Context:** The risk in this project is build wiring (second target, entitlements, shared type), not SwiftUI.
+- **Decision:** Ship the thinnest end-to-end slice first: start and end only, minimal views in all Live Activity regions. Then pause/resume, then edge cases, then the ring and styling.
+- **Consequences:** The first Live Activity milestone is reached before any visual work.
