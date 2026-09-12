@@ -30,3 +30,11 @@ Chronological log of actions, bugs, and direction changes. Newest at the bottom.
 - `@bacons/apple-targets` warns that `ios.appleTeamId` is missing. Harmless for simulator builds; needed only for device signing.
 - Edge case observed for free: reinstalling the app while a session was running removed the old Live Activity; on the next foreground launch the app hydrated the session from storage and re-created the activity with the correct elapsed time.
 - Documentation pass: wrote the README (status, setup, simulator how-to, architecture, assumptions), added decision D7 (system-rendered timer and progress in the widget), and removed a duplicate copy of the challenge brief from the repo root; `docs/CHALLENGE.md` is the one copy.
+
+## 2026-09-12, design update
+
+- Received a Claude Design handoff (`docs/design/HANDOFF.md` plus screenshots). Agreed cuts before starting: App Intent buttons in the island, the overflow menu (rename/change goal), the custom goal wheel, Archivo in the widget extension, animations, and the percentage text inside rings.
+- Step 0 (foundation), two subagents in parallel plus main-thread work: the reducer gained per-session `goalMs`, `startedAt`, `pauseCount`, a `completed` status with `endedAt`, and a `dismiss` action (100 tests). `goalMs` moved from the ActivityKit attributes into the content state so a goal can change without restarting the activity. Theme tokens and three primitives (`GradientButton`, `ProgressRing`, `Pill`) were built from the handoff tokens. The Live Activity sync rule was extracted into `planLiveActivitySync`, a pure function with tests, to handle the new toggle and the completed state.
+- The module now sets `staleDate` to the goal end while running, so the widget re-renders once at that moment and can show "Goal reached" via `context.isStale` without an app update.
+- Gotcha fixed pre-emptively: on iOS, `fontWeight` combined with a custom `fontFamily` makes React Native fall back to the system font. All text styles use the weight-specific Archivo family names only.
+- Gotcha fixed: the shared-attributes guard test uses Node's `fs`, which had never been typechecked; added `@types/node` and `"node"` to the tsconfig `types` list.
