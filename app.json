@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Study Timer",
+    "slug": "study-timer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.boldvoice.studytimer"
+    }
+  }
+}
