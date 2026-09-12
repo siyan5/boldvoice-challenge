@@ -42,3 +42,10 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Context:** The risk in this project is build wiring (second target, entitlements, shared type), not SwiftUI.
 - **Decision:** Ship the thinnest end-to-end slice first: start and end only, minimal views in all Live Activity regions. Then pause/resume, then edge cases, then the ring and styling.
 - **Consequences:** The first Live Activity milestone is reached before any visual work.
+
+## D7. The widget lets iOS render time-based content
+
+- **Context:** A widget extension is not re-rendered between content-state updates. Anything computed at render time (elapsed seconds, a progress fraction) freezes until the next update from the app.
+- **Decision:** While running, the count-up clock is `Text(timerInterval:countsDown:false)` and the progress bar is `ProgressView(timerInterval:countsDown:false)`. Both are driven by the system clock. While paused, both are static values from the frozen `elapsedMs`.
+- **Alternatives:** Push an `updateActivity` every second from JS. Fails as soon as the app is backgrounded and burns the ActivityKit update budget.
+- **Consequences:** Zero updates while running, so backgrounding and app death cost nothing. Known platform limitation: in the Always-On (dimmed) lock screen, iOS shows timer seconds as `––` and refreshes once per minute. This is system behavior for all apps and is left as is. See the journal entry for 2026-09-12.
