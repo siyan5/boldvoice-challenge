@@ -48,7 +48,7 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Context:** A widget extension is not re-rendered between content-state updates. Anything computed at render time (elapsed seconds, a progress fraction) freezes until the next update from the app.
 - **Decision:** While running, the count-up clock is `Text(timerInterval:countsDown:false)` and the progress bar is `ProgressView(timerInterval:countsDown:false)`. Both are driven by the system clock. While paused, both are static values from the frozen `elapsedMs`.
 - **Alternatives:** Push an `updateActivity` every second from JS. Fails as soon as the app is backgrounded and burns the ActivityKit update budget.
-- **Consequences:** Zero updates while running, so backgrounding and app death cost nothing. Known platform limitation: in the Always-On (dimmed) lock screen, iOS shows timer seconds as `––` and refreshes once per minute. This is system behavior for all apps and is left as is. See the journal entry for 2026-09-12.
+- **Consequences:** Zero updates while running, so backgrounding and app death cost nothing. One exception: the goal instant. A widget never re-renders on its own, so the app sends a single content-identical update when the goal is reached (only possible while the app is alive; `staleDate` is the fallback), and the widget picks "left" versus "over goal" by comparing the clock with the goal end at render time. Known platform limitation: in the Always-On (dimmed) lock screen, iOS shows timer seconds as `––` and refreshes once per minute. This is system behavior for all apps and is left as is. See the journal entry for 2026-09-12.
 
 ## D8. The bridge serializes every ActivityKit call
 

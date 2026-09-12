@@ -62,6 +62,18 @@ export function useTimer(): TimerController {
     return () => clearInterval(id);
   }, [state.status]);
 
+  // The widget cannot re-render on its own, so send one update when the goal is reached
+  // (content unchanged; the render lets the widget switch to "over goal"). If the app is
+  // suspended at that moment, the timer fires on return to foreground; staleDate covers the rest.
+  useEffect(() => {
+    if (!hydrated || !liveActivityEnabled || state.status !== 'running') return;
+    const delay = remainingMs(state, Date.now());
+    const content = toLiveActivityContentState(state);
+    if (!content || delay <= 0) return;
+    const id = setTimeout(() => updateActivity(content).catch(() => {}), delay);
+    return () => clearTimeout(id);
+  }, [state, liveActivityEnabled, hydrated]);
+
   // Mirror every transition to storage and to the Live Activity.
   // Gated on hydration so the initial idle state does not wipe the persisted one.
   useEffect(() => {

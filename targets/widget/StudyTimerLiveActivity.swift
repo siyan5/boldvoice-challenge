@@ -71,7 +71,9 @@ struct TimerText: View {
   }
 }
 
-/// "36 min left", "Goal reached" once stale, or "Paused".
+/// "23:40 left" while the goal is ahead, "1:05 over goal" once it has passed, or "Paused".
+/// Both timers are system-driven. The app sends one update at the goal instant so the
+/// widget re-renders and switches branch; `isStale` (staleDate = goal end) is the fallback.
 struct RemainingText: View {
   let state: StudyTimerAttributes.ContentState
   let isStale: Bool
@@ -80,10 +82,14 @@ struct RemainingText: View {
   var body: some View {
     if state.isPaused {
       Text("Paused")
-    } else if isStale {
-      Text("Goal reached")
+    } else if isStale || Date() >= state.goalEnd {
+      (Text(timerInterval: state.goalEnd...state.goalEnd.addingTimeInterval(100 * 3600), countsDown: false)
+        + Text(" over goal"))
+        .monospacedDigit()
+        .multilineTextAlignment(alignment)
     } else {
-      (Text(state.goalEnd, style: .relative) + Text(" left"))
+      (Text(timerInterval: state.timerStart...state.goalEnd, countsDown: true) + Text(" left"))
+        .monospacedDigit()
         .multilineTextAlignment(alignment)
     }
   }
