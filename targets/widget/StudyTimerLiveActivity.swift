@@ -51,6 +51,7 @@ func formatGoal(_ goalMs: Double) -> String {
 struct TimerText: View {
   let state: StudyTimerAttributes.ContentState
   let font: Font
+  var alignment: TextAlignment = .trailing
 
   var body: some View {
     Group {
@@ -65,8 +66,8 @@ struct TimerText: View {
     }
     .font(font)
     .monospacedDigit()
-    // Timer text greedily claims horizontal space; align it to the trailing edge.
-    .multilineTextAlignment(.trailing)
+    // Timer text greedily claims horizontal space; pin it to the wanted edge.
+    .multilineTextAlignment(alignment)
   }
 }
 
@@ -74,6 +75,7 @@ struct TimerText: View {
 struct RemainingText: View {
   let state: StudyTimerAttributes.ContentState
   let isStale: Bool
+  var alignment: TextAlignment = .trailing
 
   var body: some View {
     if state.isPaused {
@@ -82,7 +84,7 @@ struct RemainingText: View {
       Text("Goal reached")
     } else {
       (Text(state.goalEnd, style: .relative) + Text(" left"))
-        .multilineTextAlignment(.trailing)
+        .multilineTextAlignment(alignment)
     }
   }
 }
@@ -221,14 +223,14 @@ struct StudyTimerLiveActivity: Widget {
               .lineLimit(1)
             HStack(spacing: 0) {
               Text("\(formatGoal(state.goalMs)) goal · ")
-              RemainingText(state: state, isStale: context.isStale)
+              RemainingText(state: state, isStale: context.isStale, alignment: .leading)
             }
             .font(.system(size: 12.5, weight: .medium))
             .foregroundStyle(.white.opacity(0.6))
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
-          TimerText(state: state, font: .system(size: 40, weight: .heavy))
+          TimerText(state: state, font: .system(size: 40, weight: .heavy), alignment: .leading)
             .foregroundStyle(.white.opacity(isPaused ? 0.82 : 1))
             .frame(maxWidth: .infinity, alignment: .leading)
         }

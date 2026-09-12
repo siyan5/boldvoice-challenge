@@ -49,3 +49,10 @@ One entry per decision. Newest at the bottom. Format: context, decision, alterna
 - **Decision:** While running, the count-up clock is `Text(timerInterval:countsDown:false)` and the progress bar is `ProgressView(timerInterval:countsDown:false)`. Both are driven by the system clock. While paused, both are static values from the frozen `elapsedMs`.
 - **Alternatives:** Push an `updateActivity` every second from JS. Fails as soon as the app is backgrounded and burns the ActivityKit update budget.
 - **Consequences:** Zero updates while running, so backgrounding and app death cost nothing. Known platform limitation: in the Always-On (dimmed) lock screen, iOS shows timer seconds as `––` and refreshes once per minute. This is system behavior for all apps and is left as is. See the journal entry for 2026-09-12.
+
+## D8. The bridge serializes every ActivityKit call
+
+- **Context:** The hook fires bridge calls without awaiting them. A `startActivity` still in flight (ending the old activity, then requesting) can be overtaken by an `endActivity` that finds nothing to end; the request then lands after the end and leaves an activity the app believes is gone.
+- **Decision:** `modules/live-activity/index.ts` chains every native call on one promise, so calls run strictly in call order, and a rejection does not break the chain. Rapid start/stop is safe by construction, not by mitigation; a unit test pins the interleaving.
+- **Alternatives:** Cancellation tokens or "latest wins" logic. More code, and harder to reason about than a queue.
+- **Consequences:** A hung native call would stall later calls. ActivityKit calls take milliseconds, so this is accepted. The native `startActivity` additionally leaves an existing activity untouched when its attributes and content state are identical, so relaunch after a kill does not blink the activity off and on.
