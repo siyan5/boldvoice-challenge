@@ -28,7 +28,10 @@ struct ContentStateRecord: Record {
   // widget re-renders once (context.isStale) and can say "Goal reached" without an update.
   func toContent() -> ActivityContent<StudyTimerAttributes.ContentState> {
     let state = toContentState()
-    return ActivityContent(state: state, staleDate: state.isPaused ? nil : state.goalEnd)
+    // A staleDate in the past makes iOS treat the activity as stale from the start and
+    // keep it out of the Dynamic Island, so only set it while the goal is still ahead.
+    let goalAhead = !state.isPaused && state.goalEnd > Date()
+    return ActivityContent(state: state, staleDate: goalAhead ? state.goalEnd : nil)
   }
 }
 

@@ -245,7 +245,7 @@ struct StudyTimerLiveActivity: Widget {
           .font(.system(size: 13, weight: .bold))
           .foregroundStyle(isPaused ? pausedDark : accentTint)
           .lineLimit(1)
-          .frame(maxWidth: 72)
+          .frame(maxWidth: 130)
       } compactTrailing: {
         TimerText(state: state, font: .system(size: 13, weight: .bold))
           .foregroundStyle(.white.opacity(isPaused ? 0.7 : 1))
