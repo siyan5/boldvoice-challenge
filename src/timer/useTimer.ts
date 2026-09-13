@@ -95,7 +95,19 @@ export function useTimer(): TimerController {
     saveTimerState(state);
     if (isNewSession) saveRecentName(state.name).then(setRecentNames);
     if (justCompleted) appendSession(recordFromCompleted(state)).then(setHistory);
-    syncGoalNotification(state);
+    syncGoalNotification(state).then(async () => {
+      if (!__DEV__) return;
+      const Notifications = await import('expo-notifications');
+      const [perm, pending] = await Promise.all([
+        Notifications.getPermissionsAsync(),
+        Notifications.getAllScheduledNotificationsAsync(),
+      ]);
+      console.log(
+        `[goal-notification] permission=${perm.status} pending=${pending.length} ${pending
+          .map((n) => JSON.stringify(n.trigger))
+          .join(' ')}`
+      );
+    });
     syncLiveActivity(plan, state).catch((e) => console.warn('Live Activity sync failed', e));
   }, [state, liveActivityEnabled, hydrated]);
 

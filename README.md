@@ -14,7 +14,7 @@ Complete for the challenge's must-haves, verified in the iOS 26 simulator on an 
 - A local notification fires at the instant the goal is reached, even with the app in the background or killed (permission is asked on the first start).
 - Session history: every stopped session is recorded; a History screen groups them by day with daily totals, reachable from the first-run and summary screens.
 
-Design follows the Claude Design handoff in `docs/design/`. Deliberately cut from the handoff: App Intent buttons in the island, the overflow menu (rename, change goal), the custom goal wheel, Archivo in the widget, animations, and percentage text inside rings. In development builds a 1-minute goal tile is added for testing. Setup steps below were exercised on the development machine, not yet from a clean clone.
+Design follows the Claude Design handoff in `docs/design/`. Deliberately cut from the handoff: App Intent buttons in the island, the overflow menu (rename, change goal), the custom goal wheel, Archivo in the widget, animations, and percentage text inside rings. In development builds a 1-minute goal tile is added for testing. Setup steps below were verified from a clean clone on 2026-09-12: install, tests, typecheck, prebuild, and an Xcode build all passed.
 
 ## Setup
 
