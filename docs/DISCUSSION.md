@@ -2,36 +2,27 @@
 
 ## Architecture decisions and why
 
-- **Timestamps cross the bridge, not ticks.** The timer state is `{ runningSince, accumulatedMs, goalMs }`. The app talks to ActivityKit only on transitions (start, pause, resume, stop, goal reached). The widget renders time with `Text(timerInterval:)` and `ProgressView(timerInterval:)`, which iOS animates itself. This is what makes backgrounding and app death free, and it keeps the app and the widget from drifting because they derive from the same numbers. (D2, D7)
-- **A pure reducer as the source of truth, and the state machine as the router.** `timerReducer` takes `now` as an argument, so all transitions are unit-tested with hand-picked timestamps, including clock rollback. `App.tsx` picks the screen from `state.status`. (D2)
-- **A pure sync planner.** Which ActivityKit call a transition needs (start, update, end, none) is a small function with tests, so the toggle, hydration and "start replaces a live session" cases are checked without a simulator.
-- **The bridge serializes every call.** One promise chain in the Expo module means rapid start/stop cannot interleave. Safe by construction, with a unit test pinning the exact race. (D8)
-- **Local Expo module plus `@bacons/apple-targets`.** Swift stays in `modules/` and `targets/`; `npx expo prebuild --clean` regenerates the whole Xcode project, including the widget extension. Nothing in `ios/` is hand-edited or committed. (D1, D3)
-- **The shared `ActivityAttributes` type is duplicated with a guard test**, because CocoaPods cannot source a file outside the pod and the plugin's shared folder links into the app target, not the pod. (D5)
+- **Timestamps cross the bridge, not ticks.** The timer state is `{ runningSince, accumulatedMs, goalMs }`. The app talks to ActivityKit only on transitions and once at the goal instant; the widget renders time with `Text(timerInterval:)` and `ProgressView(timerInterval:)`, which iOS animates itself. This is what makes backgrounding and app death free, and the app and the widget cannot drift because they derive from the same numbers. (D2, D7)
+- **A pure reducer is the source of truth, and the state machine is the router.** The reducer takes `now` as an argument, so every transition is unit-tested with hand-picked timestamps, including clock rollback. A second pure function decides which ActivityKit call a transition needs, so hydration, the toggle, and "start replaces a live session" are tested without a simulator. `App.tsx` picks the screen from `state.status`.
+- **The bridge serializes every call.** One promise chain in the Expo module means rapid start/stop cannot interleave and leave an orphaned activity. Safe by construction, with a unit test pinning the exact race. (D8)
+- **Local Expo module plus `@bacons/apple-targets`.** Swift lives in `modules/` and `targets/`; a clean prebuild regenerates the whole Xcode project including the widget extension. Nothing in `ios/` is hand-edited or committed. (D1, D3)
 
 ## What was hardest
 
-- **Environment before code.** No Xcode, a non-mounting simulator runtime, CocoaPods refusing the system Ruby. Most of the first hour went there.
-- **Widgets never re-render on their own.** Anything computed at render time freezes until the next update. The progress bar was static until it became a `timerInterval` view; the percentage inside rings was cut for the same reason; the goal-reached moment needs one app-sent update, and a `staleDate` in the past makes iOS hide the activity entirely.
-- **SwiftUI's greedy timer text.** `Text(timerInterval:)` and relative dates claim the whole row width, so nothing right-aligns until you set the text alignment explicitly, and then the same fix breaks the places that should be leading. It also wins the width contest against the session name, which truncated to "learning about a…" next to empty space until the name got `layoutPriority(1)` and the timer a minimum width.
-- **The system owns the timer format.** `Text(timerInterval:)` renders `7:03`, never `00:07:03`, and cannot be told otherwise. A hand-formatted paused clock made the number change shape on every pause; the fix was one timer view for both states with `pauseTime`, and a documented deviation from the brief's HH:MM:SS mock in the widget.
-- **Verifying iOS behavior versus app bugs.** The lock-screen "3:––" turned out to be Always-On display behavior, proven with byte-identical framebuffer captures, not a bug.
+- **The timer looked frozen, and only half of it was a bug.** The lock-screen banner did not change across 24 seconds of captures. Part was Always-On mode hiding seconds, which is system behavior. Part was real: the progress bar was computed once at render, and a widget never re-renders on its own. The rule that came out of it: nothing computed at render time may change over time. Everything time-based in the widget is now a system-driven view, and the one thing that must switch at a moment, "x left" to "x over goal", gets a single app-sent update at the goal instant with `staleDate` as the fallback.
+- **A count-up timer has no end, so the ring meant nothing.** The brief asks for a progress ring. The first version measured against a hidden 25-minute constant. Making the goal part of every session, with presets and an "x left" caption, turned the ring from decoration into information. (D9)
+- **SwiftUI's timer text owns both its width and its format.** It claims all the width it is offered, so the session name lost the layout contest and truncated next to empty space until it got layout priority. And it renders `7:03`, never `00:07:03`, so the paused clock had to become the same view with `pauseTime` rather than a hand-formatted string. (D7)
 
 ## What the AI got wrong and had to be fixed
 
-- Gave a subagent a wrong example value for `timerStartMs`; the agent implemented the formula that matched the wrong number. Caught in review.
-- Clamped the whole elapsed value to zero on clock rollback, discarding accumulated time. Changed to clamp only the running delta.
-- Appeared to hang several times by backgrounding `npx expo run:ios` (which never exits; it becomes Metro) and waiting for it to finish, with the log piped through a buffering filter. Fixed by building with `xcodebuild` directly and polling for concrete signals.
-- Put `fontWeight` next to a custom `fontFamily`, which makes iOS fall back to the system font; and set padding on `SafeAreaView`, which iOS overrides. Both caught on first run.
-- Used a relative-date style for "time left" that counted up again after the goal (reported by the user), and later requested activities with a past `staleDate` that iOS silently refused to show.
-- Formatted the paused clock by hand (`00:01:18`) next to a system-rendered running clock (`1:18`), so the number changed shape on pause; SwiftUI's `pauseTime` argument does this in one view. Reported by the user from screenshots.
-- Computed the lock-screen percent at render time, the same freezing-value mistake as the earlier progress bar, so it read "0% of 1m goal" until the next update. Now shown only while paused.
-- Capped the compact-island name at the design spec's 72pt, which truncated normal names; the island itself decides the space, so the cap was raised and iOS truncates.
-- Assumed `expo install --dev` would put Jest in devDependencies; it did not.
+- **It waited on commands that never exit.** `npx expo run:ios` becomes the Metro server after installing the app, so the agent sat waiting for a completion signal that could never come, and twice piped the build log through a buffered filter that made it look empty. Fixed by process, not code: build with `xcodebuild`, which exits; run Metro separately; poll for concrete signals with bounded loops; report after every background step.
+- **It followed the literal example over the stated intent, twice.** Given a wrong example value for `timerStartMs` alongside the correct formula, it implemented the formula that matched the number. Given a 72pt name width in the design spec, it applied the cap inside the island, which already limits width, and truncated normal names.
+- **It computed time-varying values at render time, three times.** The static progress bar, a relative date that counted up again past the goal, and a percent caption frozen at "0%". Same mistake, same fix each time; it took three rounds before it became a rule.
+- **It clamped the whole elapsed value on clock rollback**, discarding time already banked. A logic bug caught in review; only the running delta is clamped now.
 
 ## What to improve next
 
-- App Intents for Pause / Stop / Resume in the expanded island, with a native-to-JS reconciliation path.
+- App Intents for Pause, Resume and Stop in the island, with native-to-JS reconciliation.
 - Rename and change-goal from the overflow menu; the content state already carries `goalMs`.
-- Push-driven updates so the goal-reached re-render does not depend on the app being alive.
-- A test target for the Swift module; today it is verified only by the real build, because the precompiled Expo core framework does not typecheck standalone against Xcode 26's compiler.
+- Push-driven updates so the goal-reached switch does not depend on the app being alive.
+- A test target for the Swift module; today it is verified only by the real build.
